@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kairos-risk"
+version = "0.1.0"
+description = "Kairos Risk —— 自研轻量风险分析库（VaR/ES / 欧拉风险分解 / 因子风险 / 回撤 / 压力测试 / EVT 极值 / PSR-DSR 防过拟合）"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Bruce848647703" }]
+keywords = ["quant", "risk", "var", "expected-shortfall", "euler-allocation", "factor-model", "drawdown", "stress-test", "evt", "gpd", "psr", "dsr"]
+dependencies = [
+    "numpy>=1.21",
+    "pandas>=1.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+scipy = ["scipy>=1.7"]
+
+[tool.setuptools]
+packages = ["kairos_risk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
