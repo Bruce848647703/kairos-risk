@@ -26,10 +26,14 @@ VaR/ES（历史/参数/修正）、欧拉成分风险分解、因子风险模型
   门槛越高）、最小跟踪长度、E[max SR]、损失概率、胜率置信区间（Wilson/Wald/Clopper-Pearson 精确）。
 - **合成器 `sim`**：学生 t / 混合正态 / 帕累托损失 / 多资产面板 / 同步暴跌面板 /
   已知暴露的因子面板（附**解析真值协方差**，便于白盒校验），全部固定 seed 可复现。
+- **真实数据接入 `realdata`**：本地 CSV 日线目录 → 对齐收盘价/收益面板；处理前复权负价、
+  停牌缺口（前填、无未来函数）、重复/乱序日期，并用**交易所涨跌停硬约束**反解「等差（减法）
+  前复权」的复权偏移**下界**做口径修复（`D̂ ≤ D_真`，只把伪收益拉回真实口径、不会把风险修小），
+  残余越界按 clip/zero/drop 处理，全过程留痕、离线不联网。
 - **同型进出**：DataFrame/Series 输入返回带资产索引的 Series，纯 ndarray 输入返回
   ndarray；权重与协方差成对传入时按资产名对齐，杜绝顺序错位。
-- **可测试**：230 个测试全部离线、确定性，`pytest -q` 全绿；含「无 scipy」回退路径的
-  monkeypatch 专项测试。
+- **可测试**：267 个测试全部离线、确定性，`pytest -q` 全绿；含「无 scipy」回退路径的
+  monkeypatch 专项测试，以及真实数据接入（tmp_path 造 CSV）的白盒测试。
 
 ## 安装
 ```bash
@@ -89,6 +93,61 @@ print(dsr.dsr, dsr.haircut)
 完整可运行示例见 [`examples/demo.py`](examples/demo.py)（合成多资产收益 →
 VaR/ES/成分风险 → 因子分解 → 回撤 → 压测 → EVT → PSR/DSR，一键跑通）。
 
+## 真实数据风险报告
+[`examples/real_risk_report.py`](examples/real_risk_report.py) 在**真实 A 股行情**上跑完整条
+风险链路，产出可审计的报告与指标文件（离线、只读、约 2 秒跑完）：
+
+```bash
+python examples/real_risk_report.py \
+    --data-dir ../kairos-data/data/ashare        # 省略则按「兄弟仓库」相对定位
+# 产物：research/real_risk/{REPORT.md, risk_metrics.json, drawdown.csv}
+```
+
+流程：`realdata.load_close_panel` 读 38 只标的的前复权日线 → `repair_close_panel` 修复复权口径
+→ `simple_returns` + `sanitize_returns` 得到清洁收益面板 → 逆波动权重组合 → 度量 / 成分分解 /
+因子 / 回撤 / 压测 / EVT / PSR-DSR → 25 项一致性校验（含欧拉可加性、ES≥VaR、DSR 单调性）。
+
+真实数字（样本 2018-11-29 ~ 2026-09-23，1898 个交易日 × 35 只标的，市值 1 亿元，
+`--scheme inverse_vol`；完整表格见 [`research/real_risk/REPORT.md`](research/real_risk/REPORT.md)）：
+
+| 维度 | 关键结果 |
+|---|---|
+| 收益/波动 | 年化收益 12.11%，年化波动 20.47%，夏普 0.59，超额峰度 4.21（肥尾） |
+| VaR（单日） | 95%：历史 1.83% / 正态 2.07% / 学生 t 1.98% / CF 修正 1.96% |
+| VaR（单日） | 99%：历史 3.46% / 正态 2.95% / 学生 t 3.28% / **CF 修正 4.23%** |
+| ES/CVaR | 95% 历史 2.86%（286 万元）；99% 历史 4.79%（479 万元） |
+| 成分风险 | σp=0.012892，Σ CRC 误差 1.7e-18（欧拉精确可加）；DR=1.744（零相关上界 √35=5.92）；风险有效 N=33.85 |
+| 因子风险 | 组合 beta 0.948，**系统性方差占比 94.50%**、特质 5.50%，个股 R² 中位 0.320 |
+| 回撤 | **MDD 34.22%**（2021-02-10 峰 → 2022-10-31 谷，至样本末未收复），最长水下 1361 个交易日，水下时间占比 94.89%，Calmar 0.35 |
+| 压力测试 | 市场 −20% + 波动×1.8 → 亏 1896.8 万元；历史最差单日重放 −784.7 万元（2020-02-03，= 99% VaR 的 2.3 倍）；最差 21 日窗口 −1663.1 万元 |
+| 反向压力 | 亏掉 10% 市值：pnl 口径需市场跌 10.5%（λ=0.527），冲击后 VaR 口径只需 λ=0.381 |
+| EVT 尾部 | **Hill ξ=0.4505±0.0327**（k=190，α≈2.2）；GPD(MLE) ξ=0.1983、β=0.00830、ζ=0.0501；POT VaR 99.9%=6.74%（674 万元，= 正态法 1.7 倍）、POT ES 99.9%=8.99% |
+| 防过拟合 | 每期夏普 0.0417（年化 0.66），**PSR=0.9649**；DSR：N=1 → 0.9649，N=35 → 0.3739，**N=100 → 0.2372** |
+
+可调参数：`--scheme {inverse_vol,equal}`、`--start/--end`、`--value`、`--confidence/--confidence99/
+--confidence999`、`--market-shock/--vol-multiplier/--idio-shock`、`--reverse-target-pct`、
+`--replay-window`、`--hill-k/--hill-tail-quantile`、`--tail-quantile`、`--n-trials`、
+`--tol/--max-compression/--max-bad-days/--on-bad`、`--out`、`--no-write`。
+
+### 数据声明（真实数据口径与已知偏差）
+- 数据为同系列 [`kairos-data`](../kairos-data) 仓库已提交的 **38 只 A 股前复权日线 CSV**
+  （`date,open,high,low,close,volume`；来源：腾讯/新浪公开行情接口）。本仓库**只读、不联网、
+  不改写、不再分发**原始数据；数据版权归原作者/数据源所有，仅用于研究、学习与演示，
+  不用于任何商业用途，**不保证准确、完整或及时**。
+- 该数据集的前复权为**等差（减法）口径** `P_adj = P_raw − D_t`（`D_t` = t 日之后的累计分红），
+  直接 `pct_change` 会把收益放大 `k = P_raw/P_adj` 倍：修复前有 155 个交易日的收益**超出交易所
+  涨跌停幅度**（物理上不可能），高分红标的的年化波动甚至被放大到 8000%。
+  `realdata.repair_close_panel` 用涨跌停硬约束反解出偏移**下界** `D̂ ≤ D_真` 并令
+  `P_repaired = P_adj + D̂`，因此**修复只会把伪收益拉回真实口径，不会把风险修小**（保守）。
+- 复权价被压到近零、舍入误差已主导收益的 3 只标的（`sh600809`/`sh601088`/`sh601899`，
+  压缩倍数 k̂ = 817/132/4.3 > 闸门 3.0）被整只剔除；残余 71 个越界观测按涨跌停边界 clip。
+  因 `D̂` 是下界，高分红标的**早期（2019-2021）的波动/VaR 仍可能偏大（偏保守）**。
+- 组合为**样本内静态权重**（不含调仓与交易成本），市场因子用同篮子等权组合代理；
+  因此所有数字是「若一直持有该静态组合」的风险口径，**不构成任何投资建议**。
+- 全部口径、剔除清单与 25 项校验结果都写入 `REPORT.md` 第 0/8 节与 `risk_metrics.json`，
+  可离线复现：`python examples/real_risk_report.py --data-dir <kairos-data>/data/ashare`。
+
+
 ## API 概览
 | 模块 | 关键对象 | 说明 |
 |---|---|---|
@@ -100,6 +159,7 @@ VaR/ES/成分风险 → 因子分解 → 回撤 → 压测 → EVT → PSR/DSR�
 | `tail` | `hill_estimator` `hill_path` `exceedances` `fit_gpd` `gpd_pwm` `gpd_moments` `gpd_mle` `pot_var` `pot_es` `tail_ratio` `tail_summary` `HillResult` `GpdFit` | EVT 极值尾部 |
 | `backtest_risk` | `per_period_sharpe` `sharpe_std_error` `probabilistic_sharpe_ratio` `psr_from_returns` `minimum_track_length` `expected_max_sharpe` `deflated_sharpe_ratio` `dsr_from_returns` `trials_for_target_dsr` `loss_probability` `probability_of_min_loss` `win_rate` `win_rate_ci` `backtest_risk_report` | 回测防过拟合 |
 | `sim` | `make_student_t_returns` `make_mixture_returns` `make_pareto_losses` `make_multi_asset_panel` `make_crash_panel` `make_factor_panel` `make_drawdown_path` `FactorPanel` | 合成数据生成器 |
+| `realdata` | `load_close_panel` `simple_returns` `log_returns` `repair_close_panel` `estimate_dividend_offset` `sanitize_returns` `daily_price_limit` `panel_summary` `default_data_dir` `has_local_data` `symbols_of` | 真实 CSV 行情接入与复权口径修复 |
 
 ## 设计要点
 - **数据约定**：「收益面板」指 DataFrame(index=期次, columns=资产)；单资产接受
@@ -129,9 +189,10 @@ make test          # 或 python -m pytest -q
 ## 项目结构
 ```
 kairos_risk/    核心包（measures / decomposition / factor / drawdown /
-                stress / tail / backtest_risk / sim / _util）
-examples/       可运行示例
-tests/          pytest 测试
+                stress / tail / backtest_risk / sim / realdata / _util）
+examples/       可运行示例（demo.py 合成数据；real_risk_report.py 真实数据）
+tests/          pytest 测试（全部离线、确定性）
+research/       真实数据研究产物（real_risk/REPORT.md + risk_metrics.json + drawdown.csv）
 ```
 
 ## 许可

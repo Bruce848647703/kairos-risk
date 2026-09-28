@@ -7,7 +7,7 @@ import pathlib
 import kairos_risk as kr
 
 SUBMODULES = ("measures", "decomposition", "factor", "drawdown",
-              "stress", "tail", "backtest_risk", "sim")
+              "stress", "tail", "backtest_risk", "sim", "realdata")
 
 
 def test_version():
@@ -31,6 +31,10 @@ def test_submodules_importable():
 
 def test_dual_access_to_sim():
     assert kr.sim.make_drawdown_path is kr.make_drawdown_path
+
+
+def test_dual_access_to_realdata():
+    assert kr.realdata.load_close_panel is kr.load_close_panel
 
 
 def test_no_forbidden_hard_dependencies():

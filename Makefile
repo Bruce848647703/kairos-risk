@@ -1,8 +1,10 @@
 PY ?= python3
+DATA_DIR ?= ../kairos-data/data/ashare
 
-.PHONY: help bootstrap test lint format clean demo
+.PHONY: help bootstrap test lint format clean demo real
 help:
-	@echo "targets: bootstrap test lint format clean demo"
+	@echo "targets: bootstrap test lint format clean demo real"
+	@echo "  real: 用真实 A 股行情生成 research/real_risk 报告（DATA_DIR=$(DATA_DIR)）"
 
 bootstrap:
 	$(PY) -m venv .venv
@@ -19,6 +21,9 @@ format:
 
 demo:
 	$(PY) examples/demo.py
+
+real:
+	$(PY) examples/real_risk_report.py --data-dir $(DATA_DIR)
 
 clean:
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

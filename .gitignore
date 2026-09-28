@@ -7,3 +7,16 @@ build/
 dist/
 .ipynb_checkpoints/
 .DS_Store
+*.log
+
+# 真实行情与临时数据不入库：本仓库只**只读**引用同系列 kairos-data 仓库的 CSV
+data/
+*.csv
+*.parquet
+*.feather
+*.h5
+
+# 真实数据研究产物：REPORT.md / risk_metrics.json / drawdown.csv 作为可复现证据入库
+!research/real_risk/REPORT.md
+!research/real_risk/risk_metrics.json
+!research/real_risk/drawdown.csv

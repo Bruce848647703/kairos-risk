@@ -13,7 +13,9 @@
 - tail:            极值理论（Hill 尾部指数、POT/GPD 尾部 VaR-ES、尾部比率）；
 - backtest_risk:   回测防过拟合指标（PSR、缩水夏普 DSR、最小跟踪长度、
                    损失概率、胜率置信区间）；
-- sim:             合成收益/情景生成器（肥尾、因子结构，固定 seed 可复现）。
+- sim:             合成收益/情景生成器（肥尾、因子结构，固定 seed 可复现）；
+- realdata:        真实行情接入（本地 CSV 日线 -> 收盘价/收益面板；处理前复权负价、
+                   停牌缺口与「等差前复权放大收益」的口径修复），离线、不联网。
 
 设计原则：必需依赖仅 numpy/pandas（scipy 为**可选增强**，缺失时全部功能自动回退到
 自研的纯 numpy / math 实现）；输出「同型进出」（DataFrame/Series 进 -> Series 出，
@@ -105,6 +107,19 @@ from .measures import (
     tracking_error,
     volatility,
 )
+from .realdata import (
+    daily_price_limit,
+    default_data_dir,
+    estimate_dividend_offset,
+    has_local_data,
+    load_close_panel,
+    log_returns,
+    panel_summary,
+    repair_close_panel,
+    sanitize_returns,
+    simple_returns,
+    symbols_of,
+)
 from .sim import (
     FactorPanel,
     make_crash_panel,
@@ -126,7 +141,7 @@ from .stress import (
     scenario_table,
     worst_windows,
 )
-from . import sim  # noqa: E402  允许 kr.sim.* 与 kr.make_* 两种访问方式
+from . import realdata, sim  # noqa: E402  允许 kr.sim.* / kr.realdata.* 与顶层同名函数两种访问
 from .tail import (
     GpdFit,
     HillResult,
@@ -182,6 +197,10 @@ __all__ = [
     "sim", "make_factor_panel", "make_multi_asset_panel", "make_student_t_returns",
     "make_mixture_returns", "make_pareto_losses", "make_crash_panel",
     "make_drawdown_path", "FactorPanel",
+    # realdata
+    "realdata", "load_close_panel", "simple_returns", "log_returns", "repair_close_panel",
+    "estimate_dividend_offset", "sanitize_returns", "daily_price_limit", "panel_summary",
+    "default_data_dir", "has_local_data", "symbols_of",
     # meta
     "__version__",
 ]
