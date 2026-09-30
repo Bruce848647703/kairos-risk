@@ -1,5 +1,7 @@
 # Kairos Risk
 
+[![CI](https://github.com/Bruce848647703/kairos-risk/actions/workflows/ci.yml/badge.svg)](https://github.com/Bruce848647703/kairos-risk/actions/workflows/ci.yml)
+
 > Kairos 量化系列的风险分析模块 —— 一个**自研、轻量**的 Python 风险度量、分解与回测防过拟合库。
 
 `kairos_risk` 覆盖「度量 → 分解 → 归因 → 压测 → 尾部 → 显著性」的完整风险链路：
