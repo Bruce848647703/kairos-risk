@@ -112,14 +112,19 @@ class TestBreakdown:
         fm = kr.fit_factor_model(fp.assets, fp.factors)
         w = pd.Series([0.4, 0.3, 0.2, 0.1], index=fp.assets.columns)
         brk = kr.factor_risk_decomposition(w, fm)
-        # 因子方差 + 特质方差 = 总方差（代数恒等）
-        assert abs(brk.factor_variance + brk.idio_variance - brk.total_variance) < 1e-22
+        # 因子方差 + 特质方差 = 总方差（代数恒等，用相对容差避免不同 BLAS/平台的浮点尾差）
+        assert brk.factor_variance + brk.idio_variance == pytest.approx(
+            brk.total_variance, rel=1e-12, abs=0)
         # 各自的欧拉贡献精确可加
-        assert abs(float(brk.factor_contrib.sum()) - brk.factor_variance) < 1e-22
-        assert abs(float(brk.idio_contrib.sum()) - brk.idio_variance) < 1e-22
+        assert float(brk.factor_contrib.sum()) == pytest.approx(
+            brk.factor_variance, rel=1e-12, abs=0)
+        assert float(brk.idio_contrib.sum()) == pytest.approx(
+            brk.idio_variance, rel=1e-12, abs=0)
         # 逐资产总贡献之和 = 组合波动（对隐含协方差的欧拉分解）
-        assert abs(float(brk.asset_contrib.sum()) - brk.volatility) < 1e-14
-        assert abs(brk.volatility - math.sqrt(brk.total_variance)) < 1e-18
+        assert float(brk.asset_contrib.sum()) == pytest.approx(
+            brk.volatility, rel=1e-12, abs=0)
+        assert brk.volatility == pytest.approx(
+            math.sqrt(brk.total_variance), rel=1e-12, abs=0)
         # 占比口径闭合
         assert abs(float(brk.factor_pct.sum()) + float(brk.idio_pct.sum()) - 1.0) < 1e-12
         assert abs(float(brk.asset_pct.sum()) - 1.0) < 1e-12
@@ -132,7 +137,9 @@ class TestBreakdown:
         brk = kr.factor_risk_decomposition(w, fm)
         sigma = fm.implied_cov().to_numpy()
         wv = w.to_numpy()
-        assert abs(brk.total_variance - float(wv @ sigma @ wv)) < 1e-20
+        # 与「权重 @ 隐含协方差 @ 权重」的二次型一致（相对容差：量级 ~1e-5，绝对值 1e-20 已低于 float64 分辨率）
+        assert brk.total_variance == pytest.approx(
+            float(wv @ sigma @ wv), rel=1e-12, abs=0)
 
     def test_portfolio_exposure_linear(self, factor_env):
         fp, _ = factor_env
