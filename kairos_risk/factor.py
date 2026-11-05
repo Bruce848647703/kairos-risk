@@ -31,7 +31,7 @@ from typing import Dict, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ._util import Weights, as_returns_frame, as_weights, wrap_1d
+from ._util import Weights, as_returns_frame, as_weights
 
 PanelLike = Union[pd.DataFrame, np.ndarray]
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib
 import pathlib
+import re
 
 import kairos_risk as kr
 
@@ -11,7 +12,11 @@ SUBMODULES = ("measures", "decomposition", "factor", "drawdown",
 
 
 def test_version():
-    assert kr.__version__ == "0.1.0"
+    # 版本号以 pyproject.toml 为唯一事实来源，避免发版时测试硬编码过期
+    pyproject = pathlib.Path(__file__).resolve().parents[1] / "pyproject.toml"
+    expected = re.search(r'(?m)^version = "([^"]+)"$', pyproject.read_text(encoding="utf-8"))
+    assert expected is not None
+    assert kr.__version__ == expected.group(1)
 
 
 def test_all_exports_resolvable():

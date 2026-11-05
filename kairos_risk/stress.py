@@ -309,7 +309,6 @@ def historical_replay(returns: ReturnsLike, weights: Weights, n_worst: int = 10,
         raise ValueError("window 必须为正")
     frame = as_returns_frame(returns)
     w_arr, _ = as_weights(weights, frame.columns, name="weights")
-    w = pd.Series(w_arr, index=frame.columns, name="weight")
     if float(value) <= 0:
         raise ValueError("value 必须为正")
 
